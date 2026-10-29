@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "network": "testnet",
+  "platform": "linux-amd64",
+  "version": "0.10.36",
+  "source_commit": "56b66986a0ea04808a924f81923e664c5009a39f",
+  "chain_id": "d9b9df53c507b38826c88014a556c3d502f8c832b11b053182c99d90edff8103",
+  "epoch": "testnet-2026-10-24",
+  "sequence": 1792934760,
+  "binary": {
+    "url": "https://github.com/JohnnyB813/amp_wart_node/releases/download/testnet-0.10.36-2ab6d501efbf/wart-node-testnet-linux-amd64",
+    "sha256": "2ab6d501efbf81b6804669e2d867b891cb718e5a6d5f0a384319b2256e94cf03",
+    "size": 7350368
+  }
+}
