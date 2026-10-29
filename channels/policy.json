@@ -6,7 +6,7 @@
   },
   "testnet": {
     "source_repository": "warthog-network/core",
-    "epoch": "testnet-2026-10-30",
-    "chain_id": "a1211be8b39466bee6947d9bd0ecf9963e7787af96f433c955b3772cdd691800"
+    "epoch": "testnet-2026-10-24",
+    "chain_id": "d9b9df53c507b38826c88014a556c3d502f8c832b11b053182c99d90edff8103"
   }
 }

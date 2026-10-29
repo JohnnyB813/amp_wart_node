@@ -5,16 +5,16 @@ on:
       network:
         type: choice
         description: Release to publish and promote (no server update)
-        options: [mainnet, testnet, testnet-source, updater]
+        options: [mainnet, testnet, updater]
         required: true
       source_ref:
-        description: Source ref for mainnet or testnet-source (defaults to master or defi)
-        default: ""
+        description: JohnnyB813/core mainnet ref (ignored for testnet/updater)
+        default: master
         required: false
 permissions:
   contents: read
 concurrency:
-  group: amp-publish-${{ inputs.network == 'testnet-source' && 'testnet' || inputs.network }}
+  group: amp-publish-${{ inputs.network }}
   cancel-in-progress: false
 jobs:
   checks:
@@ -48,7 +48,7 @@ jobs:
         if: inputs.network == 'mainnet'
         with:
           repository: JohnnyB813/core
-          ref: ${{ inputs.source_ref || 'master' }}
+          ref: ${{ inputs.source_ref }}
           path: node-source
           persist-credentials: false
       - name: Build and test mainnet from the selected source
@@ -66,20 +66,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/publish.py testnet --publish
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        if: inputs.network == 'testnet-source'
-        with:
-          repository: warthog-network/core
-          ref: ${{ inputs.source_ref || 'defi' }}
-          path: node-source
-          persist-credentials: false
-      - name: Build and test the selected upstream DeFi source
-        if: inputs.network == 'testnet-source'
-        run: |
-          docker build --file dockerfiles/testnet-source.Dockerfile --target export-stage --build-arg WARTHOG_COMMIT="$(git -C node-source rev-parse --short HEAD)" --output type=local,dest=dist/testnet-export node-source
-          git -C node-source rev-parse HEAD > dist/testnet-source.txt
-      - name: Publish and promote the reviewed testnet source build
-        if: inputs.network == 'testnet-source'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/publish.py testnet --from-source --binary dist/testnet-export/wart-node-linux --source-commit "$(cat dist/testnet-source.txt)" --publish

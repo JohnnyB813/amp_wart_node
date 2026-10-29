@@ -36,7 +36,7 @@ class InstallerTests(unittest.TestCase):
         (instance/'AMPConfig.conf').write_text('startup settings stay unchanged\n');(root/'data').mkdir()
         for name in ('chain.db3','chain.db3-wal','chain.db3-shm','peers.db3'):(root/'data'/name).write_bytes(b'KEEP DATABASE BYTES\x00\xff')
         policy=json.loads((ROOT/'channels/policy.json').read_text())[network];new=elf('new '+network)
-        remote={'schema':1,'network':network,'platform':'linux-amd64','version':'0.8.20' if network=='mainnet' else '0.10.38',
+        remote={'schema':1,'network':network,'platform':'linux-amd64','version':'0.8.20' if network=='mainnet' else '0.10.36',
             'source_commit':'2'*40,'chain_id':policy['chain_id'],'epoch':policy['epoch'],'sequence':2,
             'binary':{'url':'https://github.com/JohnnyB813/amp_wart_node/releases/download/example/node','sha256':sha(new),'size':len(new)}}
         def fetch(url,limit=64<<20):
@@ -79,26 +79,8 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(result['testnet_reset']);self.assertEqual(snapshot(root/'data'),databases);self.assertEqual((root/'wart-node-defi-beta-linux').read_bytes(),old)
         _,after=self.inst.fields((instance/'GenericModule.kvp').read_bytes())
         self.assertEqual(after['App.ExecutableLinux'][2],'current/wart-node')
-        self.assertEqual(after['App.CommandLineArgs'][2],values['App.CommandLineArgs'].replace('--session="./data"','--session="./data-'+remote['epoch']+'"'))
-        self.assertFalse((root/('data-'+remote['epoch'])).exists());self.assertFalse((root/'previous').exists())
-    def test_october_24_session_requires_explicit_october_30_migration(self):
-        instance,root,raw,values,remote,fetch=self.fixture('testnet')
-        old=(root/'wart-node-defi-beta-linux').read_bytes()
-        self.inst.KNOWN['testnet'][sha(old)]=('0.10.36','1'*40)
-        old_session=root/'data-testnet-2026-10-24'
-        (root/'data').rename(old_session)
-        raw=raw.replace(b'--session="./data"',b'--session="./data-testnet-2026-10-24"')
-        (instance/'GenericModule.kvp').write_bytes(raw)
-        before=snapshot(instance);databases=snapshot(old_session)
-        with patch.object(self.inst,'fetch',fetch):
-            with self.assertRaisesRegex(ValueError,'RESET REQUIRED'):self.call(instance,'testnet')
-            self.assertEqual(snapshot(instance),before)
-            self.call(instance,'testnet',accept_reset=remote['epoch'])
-        self.assertEqual(snapshot(old_session),databases)
-        _,after=self.inst.fields((instance/'GenericModule.kvp').read_bytes())
-        self.assertIn('--session="./data-testnet-2026-10-30"',after['App.CommandLineArgs'][2])
-        self.assertFalse((root/'data-testnet-2026-10-30').exists())
-        self.assertIn('--minfee=0.00009992',after['App.CommandLineArgs'][2])
+        self.assertEqual(after['App.CommandLineArgs'][2],values['App.CommandLineArgs'].replace('--session="./data"','--session="./data-testnet-2026-10-24"'))
+        self.assertFalse((root/'data-testnet-2026-10-24').exists());self.assertFalse((root/'previous').exists())
     def test_wrong_app_and_mainnet_epoch_are_refused(self):
         instance,root,raw,values,remote,fetch=self.fixture('mainnet')
         (instance/'GenericModule.kvp').write_bytes(raw.replace(self.inst.APP_IDS['mainnet'].encode(),b'wrong-app'))
@@ -140,17 +122,6 @@ class PublisherTests(unittest.TestCase):
             with patch.object(self.pub,'api',side_effect=[assets,channel]),patch.object(self.pub,'gh') as gh:
                 with self.assertRaisesRegex(ValueError,'move backwards'):self.pub.publish('example',path,current)
                 gh.assert_not_called()
-    def test_reviewed_testnet_source_build_does_not_require_official_release(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            path=Path(temporary);(path/'channels').mkdir();(path/'channels/policy.json').write_bytes((ROOT/'channels/policy.json').read_bytes())
-            node=path/'node';node.write_bytes(elf('source build'))
-            policy=json.loads((path/'channels/policy.json').read_text())['testnet']
-            with patch.object(self.pub,'ROOT',path),patch.object(self.pub,'source_info',return_value=('0.10.38',policy['chain_id'])),patch.object(self.pub,'api',return_value={'commit':{'committer':{'date':'2026-10-29T23:08:00Z'}}}) as api:
-                tag,destination,manifest=self.pub.prepare('testnet',node,'c'*40,True)
-            self.assertIn('testnet-0.10.38-cccccccccccc',tag)
-            self.assertEqual(manifest['epoch'],'testnet-2026-10-30')
-            self.assertEqual(manifest['binary']['sha256'],sha(node.read_bytes()))
-            self.assertEqual(api.call_args.args[0],'repos/warthog-network/core/commits/'+'c'*40)
     def test_new_genesis_requires_policy_review(self):
         with tempfile.TemporaryDirectory() as temporary:
             path=Path(temporary);(path/'channels').mkdir();(path/'channels/policy.json').write_bytes((ROOT/'channels/policy.json').read_bytes());node=path/'node';node.write_bytes(elf('new'))
