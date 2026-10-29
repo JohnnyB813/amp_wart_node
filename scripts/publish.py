@@ -47,10 +47,10 @@ def source_info(repository,commit,network):
 
 def timestamp(value):return int(datetime.fromisoformat(value.replace('Z','+00:00')).timestamp())
 
-def prepare(network,binary_path=None,source_commit=None):
+def prepare(network,binary_path=None,source_commit=None,from_source=False):
     policy=json.loads((ROOT/'channels/policy.json').read_text())[network]
     repository=policy['source_repository']
-    if network=='testnet':
+    if network=='testnet' and not from_source:
         release=api(f'repos/{repository}/releases/latest')
         asset=next(a for a in release['assets'] if a['name']=='wart-node-defi-beta-linux')
         digest=asset.get('digest','')
@@ -66,7 +66,7 @@ def prepare(network,binary_path=None,source_commit=None):
         if len(data)!=asset['size'] or hashlib.sha256(data).hexdigest()!=digest[7:]:raise ValueError('Official DeFi binary checksum/size mismatch')
         sequence=timestamp(asset['updated_at'])
     else:
-        if not binary_path or not source_commit:raise ValueError('Mainnet requires --binary and --source-commit from the tested source build')
+        if not binary_path or not source_commit:raise ValueError('Source builds require --binary and --source-commit from the tested source build')
         version,chain_id=source_info(repository,source_commit,network)
         data=Path(binary_path).read_bytes()
         commit=api(f'repos/{repository}/commits/{source_commit}')
@@ -75,7 +75,7 @@ def prepare(network,binary_path=None,source_commit=None):
     if not 0<len(data)<=64<<20:raise ValueError('Unexpected binary size')
     validate_elf(data)
     digest=hashlib.sha256(data).hexdigest()
-    tag=f'{network}-{version}-{source_commit[:12]}-{digest[:12]}' if network=='mainnet' else f'{network}-{version}-{digest[:12]}'
+    tag=f'{network}-{version}-{source_commit[:12]}-{digest[:12]}' if network=='mainnet' or from_source else f'{network}-{version}-{digest[:12]}'
     asset_name=f'wart-node-{network}-linux-amd64'
     manifest={'schema':1,'network':network,'platform':'linux-amd64','version':version,'source_commit':source_commit,
         'chain_id':chain_id,'epoch':policy['epoch'],'sequence':sequence,
@@ -86,7 +86,7 @@ def prepare(network,binary_path=None,source_commit=None):
     (destination/'SHA256SUMS').write_text(''.join(hashlib.sha256((destination/n).read_bytes()).hexdigest()+'  '+n+'\n' for n in (asset_name,'manifest.json')),encoding='utf-8',newline='\n')
     return tag,destination,manifest
 
-def publish(tag,directory,manifest):
+def publish(tag,directory,manifest,source_build=False):
     names=[f'wart-node-{manifest["network"]}-linux-amd64','manifest.json','SHA256SUMS']
     existing=api(f'repos/{REPO}/releases/tags/{tag}',optional=True)
     if existing:
@@ -94,8 +94,9 @@ def publish(tag,directory,manifest):
         for name in names:
             if assets.get(name)!='sha256:'+hashlib.sha256((directory/name).read_bytes()).hexdigest():raise ValueError('Existing immutable release differs; assets will not be overwritten')
     else:
+        origin='upstream source build' if source_build else ('official upstream asset mirror' if manifest['network']=='testnet' else 'custom mainnet source build')
         notes=directory/'release-notes.txt'
-        notes.write_text(f'Warthog {manifest["network"]} {manifest["version"]}\nSource: {manifest["source_commit"]}\nEpoch: {manifest["epoch"]}\nBinary SHA-256: {manifest["binary"]["sha256"]}\n\nDownloads do not contain databases or wallet keys.\n')
+        notes.write_text(f'Origin: {origin}\nWarthog {manifest["network"]} {manifest["version"]}\nSource: {manifest["source_commit"]}\nEpoch: {manifest["epoch"]}\nBinary SHA-256: {manifest["binary"]["sha256"]}\n\nDownloads do not contain databases or wallet keys.\n')
         gh('release','create',tag,*[str(directory/n) for n in names],'--repo',REPO,'--title',f'{manifest["network"]} {manifest["version"]} ({manifest["source_commit"][:12]})','--notes-file',str(notes),'--latest=false')
     channel=f'channels/{manifest["network"]}.json'
     current=api(f'repos/{REPO}/contents/{channel}',optional=True)
@@ -116,7 +117,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('network',choices=['mainnet','testnet']);parser.add_argument('--binary',type=Path)
     parser.add_argument('--source-commit');parser.add_argument('--publish',action='store_true')
-    args=parser.parse_args();tag,path,manifest=prepare(args.network,args.binary,args.source_commit)
-    if args.publish:publish(tag,path,manifest)
+    parser.add_argument('--from-source',action='store_true',help='Publish a tested testnet source build instead of mirroring an official asset')
+    args=parser.parse_args();tag,path,manifest=prepare(args.network,args.binary,args.source_commit,args.from_source)
+    if args.publish:publish(tag,path,manifest,args.from_source)
     print(json.dumps({'tag':tag,'path':str(path),'published':args.publish,'manifest':manifest},indent=2))
 if __name__=='__main__':main()

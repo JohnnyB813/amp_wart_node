@@ -30,3 +30,9 @@ tag, which historically points at the mainnet branch.
 Live AMP button execution, node restart, full synchronization, mining and
 transaction behavior still require verification after the one-time server
 integration. No schedules should be enabled until those checks are complete.
+Source-built testnet publications also verify the exact upstream commit's
+version and genesis against policy. The source checkout is compiled without
+consensus changes using the static testnet Docker builder, and its native
+Meson tests must pass before publishing. This does not start a Warthog node
+or establish real-chain/DEX synchronization. The October 24-to-October 30
+migration is tested separately to retain the complete old session.

@@ -69,23 +69,27 @@ ampinstmgr stop warthog-testnet01
 tar -czf "/home/amp/amp-channel-backups/warthog-testnet01-before-channel-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /home/amp/.ampdata/instances warthog-testnet01
 ```
 
-For a node already using the verified October 24 reset chain:
+For a node already using the verified October 30 reset chain:
 
 ```sh
 python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --check
 python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01
 ```
 
-If it still uses **0.10.32/0.10.33**, installation deliberately stops with
+If it still uses **0.10.32 through 0.10.36**, including the October 24 chain,
+installation deliberately stops with
 `RESET REQUIRED`. After the backup, explicitly choose the approved reset:
 
 ```sh
-python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-24 --check
-python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-24
+python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-30 --check
+python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-30
 ```
 
+0.10.38 on `fix-30-10-24` uses a new genesis seed, **DeFi Testnet restart
+30/10/26**. A 0.10.36 database belongs to the preceding epoch.
+
 That explicit migration downloads/verifies the promoted testnet binary and
-selects `--session="./data-testnet-2026-10-24"`. Every old database and WAL/SHM
+selects `--session="./data-testnet-2026-10-30"`. Every old database and WAL/SHM
 file stays in the old directory; the node creates the new session on startup.
 An occupied new session is refused. Old balances, assets, orders, history and
 pending transactions do not migrate. Do not automatically rebroadcast them.
@@ -96,7 +100,7 @@ Start only this managed instance afterward:
 ampinstmgr start warthog-testnet01
 ```
 
-Future updates within this epoch use **Stop node → Update → Start node**.
+Future updates within this epoch use **Stop node â†’ Update â†’ Start node**.
 A future testnet genesis/epoch change is blocked until another explicitly
 accepted migration. Normal updates never reset data.
 
@@ -122,7 +126,7 @@ curl -fsS http://127.0.0.1:13100/chain/head
 ```
 
 The approved reset chain's height-1 header `prevHash` is
-`d9b9df53c507b38826c88014a556c3d502f8c832b11b053182c99d90edff8103`.
+`a1211be8b39466bee6947d9bd0ecf9963e7787af96f433c955b3772cdd691800`.
 Check peer connections and chain progress as well as the version string.
 Mainnet's custom 0.8.20 build is identified by its source commit/hash; the
 version string alone cannot distinguish two custom builds.

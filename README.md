@@ -12,10 +12,12 @@ updater refuses to replace a running node executable.
 
 ## How releases reach AMP
 
-1. In **Actions → Publish AMP release → Run workflow**, choose:
+1. In **Actions â†’ Publish AMP release â†’ Run workflow**, choose:
    - **mainnet**: builds/tests the selected `JohnnyB813/core` ref (default `master`).
    - **testnet**: verifies the latest official `warthog-network/core` DeFi asset
      against GitHub's published SHA-256 and the successful DeFi build source.
+   - **testnet-source**: builds/tests an explicit upstream DeFi ref when its
+     version is available in source before an official binary release.
    - **updater**: publishes a new explicitly versioned installer/runtime pair.
 2. A successful node publication creates versioned release assets and promotes
    only its own `channels/mainnet.json` or `channels/testnet.json`.
@@ -46,15 +48,23 @@ except when an explicitly accepted network reset selects a fresh session.
 
 ## Testnet resets require explicit migration
 
-The current approved testnet epoch is **testnet-2026-10-24**. A pre-reset
-0.10.32/0.10.33 instance requires the setup guide's explicit reset option after
-its backup. The old session is kept intact; balances, assets, orders and
+The current approved testnet epoch is **testnet-2026-10-30**, from the
+upstream **0.10.38** source commit
+[`ca4615a4d9ad`](https://github.com/warthog-network/core/commit/ca4615a4d9ad21e845363901d344add663d8f4b9)
+on `fix-30-10-24`. This is another reset after the October 24 chain. Existing
+0.10.32–0.10.36 instances require the setup guide's explicit reset option
+after a full cold backup. The old session is kept intact; balances, assets, orders and
 pending transactions do not migrate to the new chain.
 
 Future genesis changes are blocked twice: the publisher requires a reviewed
 `channels/policy.json` change, and each installed updater refuses a channel
 whose network/epoch/genesis hash differs from its local binding. A normal
 Update button click never deletes a database or accepts a testnet reset.
+
+To publish this source version, run **Publish AMP release** with
+**network = testnet-source** and **source_ref =
+ca4615a4d9ad21e845363901d344add663d8f4b9**. The normal `testnet` mode remains
+for official published binary assets; a retired-epoch asset is refused.
 
 ## Inspect or roll back
 
