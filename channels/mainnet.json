@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "network": "mainnet",
+  "platform": "linux-amd64",
+  "version": "0.8.20",
+  "source_commit": "51d5d1d789dd03c876967f6a51676f940ae6690a",
+  "chain_id": "b29988793c29118a842ba38ea4ab13d43e3dce3f04511ba6ca3340542dfd8537",
+  "epoch": "mainnet-v1",
+  "sequence": 1793247409,
+  "binary": {
+    "url": "https://github.com/JohnnyB813/amp_wart_node/releases/download/mainnet-0.8.20-51d5d1d789dd-55ca41711062/wart-node-mainnet-linux-amd64",
+    "sha256": "55ca417110629fafd180f6a2d71ca16eb67a76df805e50c9d332da20bbba9fc1",
+    "size": 9724528
+  }
+}
