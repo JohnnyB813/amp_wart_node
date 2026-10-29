@@ -1,0 +1,150 @@
+# One-time setup for the existing AMP nodes
+
+After this one-time connection, application updates use AMP's own Update
+button. No archive copying or unpacking is required for later node releases.
+This first phase creates no timer, cron entry, or automatic restart schedule.
+
+## Prerequisites
+
+- Linux x86-64 AMP host, outbound HTTPS to GitHub, and Python 3 on the host.
+- Existing mainnet/testnet templates with the known application IDs and paths.
+- Use the AMP owner account, normally `amp` (`sudo -iu amp` from an admin login).
+- Keep the normal AMP Docker/Podman image and host networking. The standalone
+  updater has no Python, curl, or package-manager requirement inside it.
+
+The one-time installer changes only update/pre-start hooks and the executable
+selection, plus the testnet session argument if you explicitly accept a reset.
+It preserves assigned ports, minfee, API bindings, and startup settings.
+
+## Download the pinned installer once
+
+```sh
+curl -fL --output install-amp-updates.py https://github.com/JohnnyB813/amp_wart_node/releases/download/updater-v0.1.0/install-amp-updates.py
+```
+
+The installer downloads the matching versioned standalone updater and verifies
+its published SHA-256. It does not require a GitHub token for this public repo.
+
+## Mainnet: preserve the existing chain and selected binary
+
+1. Stop the node application cleanly in its own AMP panel, then stop only the
+   managed mainnet AMP instance. ADS and other instances can stay running.
+2. Take a complete cold backup outside the instance. Confirm free space first.
+
+```sh
+ampinstmgr stop warthog-mainnet01
+umask 077
+mkdir -p /home/amp/amp-channel-backups
+tar -czf "/home/amp/amp-channel-backups/warthog-mainnet01-before-channel-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /home/amp/.ampdata/instances warthog-mainnet01
+```
+
+3. After the backup succeeds, preview and integrate:
+
+```sh
+python3 install-amp-updates.py --network mainnet --instance /home/amp/.ampdata/instances/warthog-mainnet01 --check
+python3 install-amp-updates.py --network mainnet --instance /home/amp/.ampdata/instances/warthog-mainnet01
+ampinstmgr start warthog-mainnet01
+```
+
+Integration retains the selected mainnet binary. It leaves
+`--chain-db="./data/chain.db3"`, `--peers-db="./data/peers.db3"`, and the existing
+`--minfee=0.00009992` unchanged. It saves original executable/configuration
+copies under the instance's `amp-update-backups/` directory.
+
+4. Manage the mainnet instance, **stop its node application**, click that
+   application's **Update**, then **Start**. This selects the promoted mainnet
+   build. Leave the managed AMP panel running for these normal updates.
+
+Use the application's update control inside its management page. The ADS
+instance-tile Update/Update All actions update AMP/module configuration and
+are not the node update path described here.
+
+## Testnet: first determine whether it still uses the pre-reset chain
+
+Stop the testnet node cleanly, stop its managed AMP instance, and make the
+same kind of complete cold backup:
+
+```sh
+ampinstmgr stop warthog-testnet01
+tar -czf "/home/amp/amp-channel-backups/warthog-testnet01-before-channel-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /home/amp/.ampdata/instances warthog-testnet01
+```
+
+For a node already using the verified October 24 reset chain:
+
+```sh
+python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --check
+python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01
+```
+
+If it still uses **0.10.32/0.10.33**, installation deliberately stops with
+`RESET REQUIRED`. After the backup, explicitly choose the approved reset:
+
+```sh
+python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-24 --check
+python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-24
+```
+
+That explicit migration downloads/verifies the promoted testnet binary and
+selects `--session="./data-testnet-2026-10-24"`. Every old database and WAL/SHM
+file stays in the old directory; the node creates the new session on startup.
+An occupied new session is refused. Old balances, assets, orders, history and
+pending transactions do not migrate. Do not automatically rebroadcast them.
+
+Start only this managed instance afterward:
+
+```sh
+ampinstmgr start warthog-testnet01
+```
+
+Future updates within this epoch use **Stop node → Update → Start node**.
+A future testnet genesis/epoch change is blocked until another explicitly
+accepted migration. Normal updates never reset data.
+
+## Check after starting
+
+From the node's application directory, `amp-wart-update verify` checks the
+selected binary offline, and `check` compares it to the remote channel.
+
+Mainnet API checks:
+
+```sh
+curl -fsS http://127.0.0.1:3000/tools/version
+curl -fsS http://127.0.0.1:3000/chain/head
+curl -fsS http://127.0.0.1:3000/transaction/minfee
+```
+
+Testnet API checks:
+
+```sh
+curl -fsS http://127.0.0.1:13100/version
+curl -fsS http://127.0.0.1:13100/chain/block/1/header
+curl -fsS http://127.0.0.1:13100/chain/head
+```
+
+The approved reset chain's height-1 header `prevHash` is
+`d9b9df53c507b38826c88014a556c3d502f8c832b11b053182c99d90edff8103`.
+Check peer connections and chain progress as well as the version string.
+Mainnet's custom 0.8.20 build is identified by its source commit/hash; the
+version string alone cannot distinguish two custom builds.
+
+## Rollback and recovery
+
+With the node stopped, run from its application directory:
+
+```sh
+./amp-wart-update rollback --root "$PWD" --network mainnet
+```
+
+Use `--network testnet` for testnet. This selects the retained previous release
+within the same epoch and does not touch databases. Repeating rollback is
+idempotent. A reset migration intentionally creates no automatic rollback
+pointer to the retired chain. Keep its original configuration/binary backup
+for archival recovery; it does not make that retired network current again.
+
+If one-time integration must be undone, stop this node and managed AMP
+instance, restore the saved `GenericModule.kvp` and its matching executable
+selection from `amp-update-backups/`, then restart only this instance. If data
+recovery is needed, use a complete matching cold backup and keep each SQLite
+snapshot with its own sidecars. Do not mix old/new snapshots.
+
+The repository does not install a whole-AMP restart task or host service.

@@ -1,0 +1,12 @@
+{
+  "mainnet": {
+    "source_repository": "JohnnyB813/core",
+    "epoch": "mainnet-v1",
+    "chain_id": "b29988793c29118a842ba38ea4ab13d43e3dce3f04511ba6ca3340542dfd8537"
+  },
+  "testnet": {
+    "source_repository": "warthog-network/core",
+    "epoch": "testnet-2026-10-24",
+    "chain_id": "d9b9df53c507b38826c88014a556c3d502f8c832b11b053182c99d90edff8103"
+  }
+}

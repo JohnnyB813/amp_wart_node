@@ -1,2 +1,8 @@
-# Auto detect text files and perform LF normalization
+# Normalize deployment sources and checksum-sensitive scripts across platforms.
 * text=auto
+*.go text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+go.mod text eol=lf

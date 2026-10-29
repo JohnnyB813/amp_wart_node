@@ -1,0 +1,68 @@
+name: Publish AMP release
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        type: choice
+        description: Release to publish and promote (no server update)
+        options: [mainnet, testnet, updater]
+        required: true
+      source_ref:
+        description: JohnnyB813/core mainnet ref (ignored for testnet/updater)
+        default: master
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: amp-publish-${{ inputs.network }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/validate.yml
+  publish:
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        if: inputs.network == 'updater'
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build and publish the updater
+        if: inputs.network == 'updater'
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          go build -trimpath -buildvcs=false -ldflags='-s -w' -o dist/amp-wart-update-linux-amd64 ./cmd/amp-wart-update
+          python3 scripts/publish-updater.py --publish
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: inputs.network == 'mainnet'
+        with:
+          repository: JohnnyB813/core
+          ref: ${{ inputs.source_ref }}
+          path: node-source
+          persist-credentials: false
+      - name: Build and test mainnet from the selected source
+        if: inputs.network == 'mainnet'
+        run: |
+          docker build --file node-source/dockerfiles/build_linux --target export-stage --output type=local,dest=dist/mainnet-export node-source
+          git -C node-source rev-parse HEAD > dist/mainnet-source.txt
+      - name: Publish and promote mainnet
+        if: inputs.network == 'mainnet'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish.py mainnet --binary dist/mainnet-export/wart-node-linux --source-commit "$(cat dist/mainnet-source.txt)" --publish
+      - name: Verify the official DeFi asset, publish and promote testnet
+        if: inputs.network == 'testnet'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish.py testnet --publish
