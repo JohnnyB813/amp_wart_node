@@ -46,9 +46,10 @@ except when an explicitly accepted network reset selects a fresh session.
 
 ## Testnet resets require explicit migration
 
-The current approved testnet epoch is **testnet-2026-10-24**. A pre-reset
-0.10.32/0.10.33 instance requires the setup guide's explicit reset option after
-its backup. The old session is kept intact; balances, assets, orders and
+The current approved testnet epoch is **testnet-2026-10-30** (official 0.10.38). Any
+0.10.32-0.10.36 instance requires the setup guide's explicit reset option after
+its backup. See [the 0.10.38 upgrade guide](docs/UPGRADE-0.10.38.md).
+The old session is kept intact; balances, assets, orders and
 pending transactions do not migrate to the new chain.
 
 Future genesis changes are blocked twice: the publisher requires a reviewed

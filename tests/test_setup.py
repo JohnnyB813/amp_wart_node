@@ -36,7 +36,7 @@ class InstallerTests(unittest.TestCase):
         (instance/'AMPConfig.conf').write_text('startup settings stay unchanged\n');(root/'data').mkdir()
         for name in ('chain.db3','chain.db3-wal','chain.db3-shm','peers.db3'):(root/'data'/name).write_bytes(b'KEEP DATABASE BYTES\x00\xff')
         policy=json.loads((ROOT/'channels/policy.json').read_text())[network];new=elf('new '+network)
-        remote={'schema':1,'network':network,'platform':'linux-amd64','version':'0.8.20' if network=='mainnet' else '0.10.36',
+        remote={'schema':1,'network':network,'platform':'linux-amd64','version':'0.8.20' if network=='mainnet' else '0.10.38',
             'source_commit':'2'*40,'chain_id':policy['chain_id'],'epoch':policy['epoch'],'sequence':2,
             'binary':{'url':'https://github.com/JohnnyB813/amp_wart_node/releases/download/example/node','sha256':sha(new),'size':len(new)}}
         def fetch(url,limit=64<<20):
@@ -79,8 +79,47 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(result['testnet_reset']);self.assertEqual(snapshot(root/'data'),databases);self.assertEqual((root/'wart-node-defi-beta-linux').read_bytes(),old)
         _,after=self.inst.fields((instance/'GenericModule.kvp').read_bytes())
         self.assertEqual(after['App.ExecutableLinux'][2],'current/wart-node')
-        self.assertEqual(after['App.CommandLineArgs'][2],values['App.CommandLineArgs'].replace('--session="./data"','--session="./data-testnet-2026-10-24"'))
-        self.assertFalse((root/'data-testnet-2026-10-24').exists());self.assertFalse((root/'previous').exists())
+        self.assertEqual(after['App.CommandLineArgs'][2],values['App.CommandLineArgs'].replace('--session="./data"','--session="./data-'+remote['epoch']+'"'))
+        self.assertFalse((root/('data-'+remote['epoch'])).exists());self.assertFalse((root/'previous').exists())
+    def test_october24_legacy_binary_migrates_without_reusing_its_session(self):
+        instance,root,raw,values,remote,fetch=self.fixture('testnet')
+        digest=sha((root/'wart-node-defi-beta-linux').read_bytes())
+        self.inst.KNOWN['testnet'][digest]=('0.10.36','1'*40)
+        command=values['App.CommandLineArgs'].replace('./data','./data-testnet-2026-10-24')+' {{TradesHistory}}'
+        raw=self.inst.patch(raw,{'App.CommandLineArgs':command});(instance/'GenericModule.kvp').write_bytes(raw)
+        (root/'data').rename(root/'data-testnet-2026-10-24');before=snapshot(root/'data-testnet-2026-10-24')
+        with patch.object(self.inst,'fetch',fetch):
+            with self.assertRaisesRegex(ValueError,'RESET REQUIRED'):self.call(instance,'testnet')
+            self.assertEqual((instance/'GenericModule.kvp').read_bytes(),raw)
+            self.call(instance,'testnet',accept_reset=remote['epoch'])
+        _,after=self.inst.fields((instance/'GenericModule.kvp').read_bytes())
+        self.assertEqual(after['App.CommandLineArgs'][2],command.replace('testnet-2026-10-24',remote['epoch']))
+        self.assertEqual(snapshot(root/'data-testnet-2026-10-24'),before)
+        self.assertFalse((root/('data-'+remote['epoch'])).exists())
+    def test_integrated_october24_binding_also_requires_explicit_reset(self):
+        instance,root,raw,values,remote,fetch=self.fixture('testnet')
+        old=(root/'wart-node-defi-beta-linux').read_bytes();digest=sha(old)
+        previous=copy.deepcopy(remote);previous.update(version='0.10.36',source_commit='1'*40,epoch='testnet-2026-10-24',chain_id=self.inst.RESET_ID,sequence=1)
+        previous['binary'].update(sha256=digest,size=len(old))
+        release=root/'releases'/digest;release.mkdir(parents=True);(release/'wart-node').write_bytes(old)
+        (release/'wart-node').chmod(0o755);(release/'amp-release.json').write_text(json.dumps(previous))
+        (release/'SHA256SUMS').write_text(digest+'  wart-node\n')
+        (root/'current').symlink_to('releases/'+digest,target_is_directory=True)
+        (root/'previous').symlink_to('releases/'+digest,target_is_directory=True)
+        (root/'amp-update.json').write_text(json.dumps({'schema':1,'network':'testnet','epoch':previous['epoch'],'chain_id':previous['chain_id'],'channel_url':'https://raw.githubusercontent.com/JohnnyB813/amp_wart_node/main/channels/testnet.json'}))
+        command=values['App.CommandLineArgs'].replace('./data','./data-testnet-2026-10-24')
+        raw=self.inst.patch(raw,{'App.CommandLineArgs':command,'App.ExecutableLinux':'current/wart-node'});(instance/'GenericModule.kvp').write_bytes(raw)
+        (root/'data').rename(root/'data-testnet-2026-10-24');before=snapshot(instance)
+        with patch.object(self.inst,'fetch',fetch):
+            with self.assertRaisesRegex(ValueError,'RESET REQUIRED'):self.call(instance,'testnet',check=True)
+            self.call(instance,'testnet',check=True,accept_reset=remote['epoch']);self.assertEqual(snapshot(instance),before)
+            self.call(instance,'testnet',accept_reset=remote['epoch'])
+        rollback=subprocess.run([str(root/'amp-wart-update'),'rollback','--root',str(root),'--network','testnet'],capture_output=True,text=True)
+        self.assertNotEqual(rollback.returncode,0);self.assertIn('RESET REQUIRED',rollback.stderr)
+        self.assertEqual(json.loads((root/'amp-update.json').read_text())['epoch'],remote['epoch'])
+        for path,digest_before in before.items():
+            if path.startswith('warthog-defi-testnet/data-testnet-2026-10-24/'):
+                self.assertEqual(snapshot(instance)[path],digest_before)
     def test_wrong_app_and_mainnet_epoch_are_refused(self):
         instance,root,raw,values,remote,fetch=self.fixture('mainnet')
         (instance/'GenericModule.kvp').write_bytes(raw.replace(self.inst.APP_IDS['mainnet'].encode(),b'wrong-app'))

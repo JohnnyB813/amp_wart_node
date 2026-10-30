@@ -59,44 +59,26 @@ Use the application's update control inside its management page. The ADS
 instance-tile Update/Update All actions update AMP/module configuration and
 are not the node update path described here.
 
-## Testnet: first determine whether it still uses the pre-reset chain
+## Testnet: migrate to the October 30 reset chain (0.10.38)
 
-Stop the testnet node cleanly, stop its managed AMP instance, and make the
-same kind of complete cold backup:
+Official 0.10.38 resets the testnet again. Both the pre-October-24 releases
+(0.10.32/0.10.33) and the October 24 releases (0.10.34-0.10.36) require an
+explicit fresh session. An existing channel integration also blocks this
+reset until you rerun the installer with the new epoch.
 
-```sh
-ampinstmgr stop warthog-testnet01
-tar -czf "/home/amp/amp-channel-backups/warthog-testnet01-before-channel-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /home/amp/.ampdata/instances warthog-testnet01
-```
+Follow [the 0.10.38 upgrade guide](UPGRADE-0.10.38.md) for the current server's
+0.10.36 configuration, cold backup, download verification, preview and migration.
+The same commands work for an already integrated October 24 instance.
 
-For a node already using the verified October 24 reset chain:
+For an instance already bound to the verified October 30 chain, rerun the
+installer without a reset option if needed:
 
 ```sh
 python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --check
 python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01
 ```
 
-If it still uses **0.10.32/0.10.33**, installation deliberately stops with
-`RESET REQUIRED`. After the backup, explicitly choose the approved reset:
-
-```sh
-python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-24 --check
-python3 install-amp-updates.py --network testnet --instance /home/amp/.ampdata/instances/warthog-testnet01 --accept-testnet-reset testnet-2026-10-24
-```
-
-That explicit migration downloads/verifies the promoted testnet binary and
-selects `--session="./data-testnet-2026-10-24"`. Every old database and WAL/SHM
-file stays in the old directory; the node creates the new session on startup.
-An occupied new session is refused. Old balances, assets, orders, history and
-pending transactions do not migrate. Do not automatically rebroadcast them.
-
-Start only this managed instance afterward:
-
-```sh
-ampinstmgr start warthog-testnet01
-```
-
-Future updates within this epoch use **Stop node → Update → Start node**.
+Future updates within this epoch use **Stop node -> Update -> Start node**.
 A future testnet genesis/epoch change is blocked until another explicitly
 accepted migration. Normal updates never reset data.
 
@@ -122,7 +104,7 @@ curl -fsS http://127.0.0.1:13100/chain/head
 ```
 
 The approved reset chain's height-1 header `prevHash` is
-`d9b9df53c507b38826c88014a556c3d502f8c832b11b053182c99d90edff8103`.
+`a1211be8b39466bee6947d9bd0ecf9963e7787af96f433c955b3772cdd691800`.
 Check peer connections and chain progress as well as the version string.
 Mainnet's custom 0.8.20 build is identified by its source commit/hash; the
 version string alone cannot distinguish two custom builds.
@@ -137,8 +119,9 @@ With the node stopped, run from its application directory:
 
 Use `--network testnet` for testnet. This selects the retained previous release
 within the same epoch and does not touch databases. Repeating rollback is
-idempotent. A reset migration intentionally creates no automatic rollback
-pointer to the retired chain. Keep its original configuration/binary backup
+idempotent. A reset migration provides no automatic rollback
+to the retired chain; any retained previous pointer from that epoch is refused.
+Keep its original configuration/binary backup
 for archival recovery; it does not make that retired network current again.
 
 If one-time integration must be undone, stop this node and managed AMP
