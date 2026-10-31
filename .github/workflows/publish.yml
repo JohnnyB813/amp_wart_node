@@ -54,7 +54,7 @@ jobs:
       - name: Build and test mainnet from the selected source
         if: inputs.network == 'mainnet'
         run: |
-          docker build --file node-source/dockerfiles/build_linux --target export-stage --output type=local,dest=dist/mainnet-export node-source
+          docker build --file node-source/dockerfiles/build_linux --build-arg WARTHOG_COMMIT="$(git -C node-source rev-parse HEAD)" --target export-stage --output type=local,dest=dist/mainnet-export node-source
           git -C node-source rev-parse HEAD > dist/mainnet-source.txt
       - name: Publish and promote mainnet
         if: inputs.network == 'mainnet'
