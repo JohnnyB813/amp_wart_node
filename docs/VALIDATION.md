@@ -53,3 +53,40 @@ hooks, October 24 session, minfee 0.00000001 and trade-history flag enabled.
 The instance displayed idle. No live configuration, executable, session or
 process state was changed. Production synchronization and transactions remain
 post-deployment checks in [the upgrade guide](UPGRADE-0.10.38.md).
+
+## Mainnet c90717de preparation (October 31, 2026)
+
+Mainnet channel source `c90717deac2a00fcec8f126065362c2344e00898` is the
+latest inspected `JohnnyB813/core` master commit (version 0.8.20). The AMP
+workflow now passes the exact checkout SHA as `WARTHOG_COMMIT`, so this
+build's version text identifies that source rather than `unknown`.
+
+[Publication run](https://github.com/JohnnyB813/amp_wart_node/actions/runs/41243204509)
+passed all 29 native tests, including transaction hash/history-ID lookup
+and mempool API snapshot ownership/sender tests, plus the Go race/vet/format
+checks and 11 Python integration/publisher tests. The source repository's
+[container run](https://github.com/JohnnyB813/core/actions/runs/41231930742)
+also passed Stratum socket, CLI/TOML, offline replay, P2P rejection and
+recovery regressions for this commit.
+
+Published binary size is 4,380,768 bytes, SHA-256
+`55b3bcd5d805dc441e42abcf0259f067a45be7610a675919cc5216f2019a7f2e`.
+Public asset, manifest and checksum downloads were independently verified.
+UPX integrity/decompression and unpacked ELF inspection passed; the unpacked
+binary has no dynamic interpreter/library dependency and contains the exact
+full source commit. Inspection did not execute the node.
+
+Disposable Linux fixtures used the configuration inspected from
+`warthog-mainnet01` and the real prior 51d5d1d7 binary. The published pinned
+updater-v0.1.0 installer/helper retained the old selection on integration,
+then downloaded/selected c90717de. Verification covered update idempotence,
+rollback to the old binary and update again, for both symlink and physical
+current-directory layouts. Database/WAL/SHM fixture bytes, database flags,
+ports, minfee 0.00009992, app settings and startup settings were preserved.
+The network remains mainnet-v1 with the original genesis; no reset occurred.
+
+No live mainnet configuration, binary or process state was changed. The
+inspected live configuration still has manual verification-only Update hooks;
+[the guide](UPGRADE-mainnet-0.8.20-c90717de.md) describes the required one-time
+channel connection before using AMP's application Update button. Live AMP
+button execution and chain progress remain post-deployment checks.

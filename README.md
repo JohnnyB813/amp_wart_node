@@ -32,7 +32,8 @@ remain under the existing AMP configuration.
 
 ## Connect the existing instances once
 
-See **[docs/SETUP.md](docs/SETUP.md)**. Initial integration needs Linux host
+See **[docs/SETUP.md](docs/SETUP.md)** and the
+[mainnet c90717de upgrade guide](docs/UPGRADE-mainnet-0.8.20-c90717de.md). Initial integration needs Linux host
 access as the AMP owner, a complete cold backup, and a brief stop of the target
 node and its managed AMP instance. ADS and other nodes stay running. The
 installer downloads the standalone updater itself; Python is needed only for
